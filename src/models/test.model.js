@@ -10,6 +10,10 @@ const Test = sequelize.define(
     description: { type: DataTypes.TEXT },
     author: { type: DataTypes.STRING(255), allowNull: false },
     quantity: { type: DataTypes.INTEGER, allowNull: false },
+    attempts: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     created_by: {
       type: DataTypes.INTEGER,
       allowNull: false,

@@ -12,7 +12,7 @@ const {
 
 router.get("/detail/:id", authenticateToken, getDetailTest);
 router.get("/history/:history_id", authenticateToken, getUserAnswers);
-router.get("/info", authenticateToken, getInfoTest);
+router.get("/info/:id", authenticateToken, getInfoTest);
 router.post("/submit", authenticateToken, submitTest);
 router.get("/history", authenticateToken, getHistoryTest);
 router.get("/", authenticateToken, getListTests);

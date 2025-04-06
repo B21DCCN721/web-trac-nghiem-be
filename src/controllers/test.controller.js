@@ -1,16 +1,45 @@
+const { Op } = require("sequelize");
 const {
   Test,
   Question,
   Answer,
   TestHistory,
   UserAnswer,
+  User
 } = require("../models");
 
 // lay danh sach bai thi
 const getListTests = async (req, res) => {
+  const { page = 1, limit = 5 } = req.query; 
+  const offset = (page - 1) * limit; 
+  
   try {
-    const tests = await Test.findAll();
-    res.status(200).json({ success: true, data: tests });
+    const queryOptions = {
+      ...req.searchQuery, // Nếu có tìm kiếm thì áp dụng
+      limit: Number(limit),
+      offset: Number(offset),
+    };
+    
+    // Lấy danh sách tests từ database với điều kiện tìm kiếm và phân trang
+    const tests = await Test.findAll(queryOptions);
+
+    // Tính tổng số lượng bản ghi
+    const totalTests = await Test.count({
+      where: req.searchQuery ? req.searchQuery.where : {}, // Nếu có search thì lọc theo search
+    });
+
+    const totalPages = Math.ceil(totalTests / limit); // Tính tổng số trang
+
+    res.status(200).json({
+      message: "Thành công",
+      data: tests,
+      pagination: {
+        totalTests,
+        totalPages,
+        currentPage: page,
+        pageSize: limit,
+      },
+    });
   } catch (error) {
     console.error("Error fetching tests:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
@@ -19,7 +48,7 @@ const getListTests = async (req, res) => {
 //lay thong tin 1 bai thi
 const getInfoTest = async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({ message: "Thiếu id bài test" });
@@ -33,7 +62,7 @@ const getInfoTest = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy bài test" });
     }
 
-    res.status(200).json(infoTest);
+    res.status(200).json({ message: "Thành công", data: infoTest });
   } catch (error) {
     console.error("Lỗi lấy chi tiết bài test:", error);
     res.status(500).json({ message: "Lỗi server" });
@@ -68,7 +97,7 @@ const getDetailTest = async (req, res) => {
     }
 
     // Trả về thông tin bài thi với câu hỏi và câu trả lời
-    res.status(200).json(test);
+    res.status(200).json({ message: "Thành công", data: test });
   } catch (error) {
     console.error("Lỗi lấy chi tiết bài thi:", error);
     res.status(500).json({ message: "Lỗi server" });
@@ -77,7 +106,8 @@ const getDetailTest = async (req, res) => {
 // xử lý nộp bài thi
 const submitTest = async (req, res) => {
   try {
-    const { user_id, test_id, answers } = req.body; // Nhận user_id, test_id và danh sách câu trả lời từ request body
+    const user_id = req.user.id;
+    const { test_id, answers } = req.body; // Nhận user_id, test_id và danh sách câu trả lời từ request body
 
     // Tạo bản ghi lịch sử thi (TestHistory)
     const test = await Test.findOne({ where: { id: test_id } });
@@ -117,6 +147,11 @@ const submitTest = async (req, res) => {
     // Cập nhật điểm số vào TestHistory
     await history.update({ score });
 
+     // Cập nhật số lần làm bài vào bảng Test
+     await test.update({
+      attempts: test.attempts + 1, // Tăng số lần làm bài lên 1
+    });
+
     res.status(200).json({
       message: "Nộp bài thành công",
       score: score,
@@ -126,10 +161,16 @@ const submitTest = async (req, res) => {
     res.status(500).json({ message: "Lỗi server" });
   }
 };
-// lấy ra lịch sử làm bàibài
+// lấy ra lịch sử làm bài
 const getHistoryTest = async (req, res) => {
   try {
-    const user_id = req.user.id; // Lấy user_id từ URL params
+    const user_id = req.user.id;
+    const { page = 1, limit = 5 } = req.query; 
+    const offset = (page - 1) * limit; 
+    const queryOptions = {
+      limit: Number(limit),
+      offset: Number(offset),
+    };
 
     // Lấy lịch sử làm bài của người dùng, bao gồm thông tin bài thi và điểm số
     const history = await TestHistory.findAll({
@@ -140,64 +181,91 @@ const getHistoryTest = async (req, res) => {
           attributes: ["title", "description"], // Chỉ lấy các trường cần thiết từ Test
         },
       ],
+      ...queryOptions,
+      order: [["completed_at", "DESC"]],
     });
-
-    // Kiểm tra nếu không có lịch sử nào
-    if (history.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Không có lịch sử làm bài cho người dùng này" });
-    }
-
+    // Đếm tổng số bản ghi
+    const total = await TestHistory.count({
+      where: { user_id },
+    });
+    const totalPages = Math.ceil(total/ limit);
     res.status(200).json({
-      message: "Lịch sử làm bài thành công",
+      message: `Lịch sử làm bài của ${req.user.username}`,
       data: history,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: page,
+        pageSize: limit,
+      },
     });
   } catch (error) {
     console.error("Lỗi khi lấy lịch sử làm bài:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };
-// lấy ra lịch sử lựa chọn ứng vơí lịch sử bài làmlàm
+// lấy ra lịch sử lựa chọn ứng vơí lịch sử bài làm
 const getUserAnswers = async (req, res) => {
   try {
-    const { history_id } = req.params; // Lấy history_id từ URL params
+    const { history_id } = req.params;
 
-    // Tìm lịch sử làm bài tương ứng với history_id
-    const history = await TestHistory.findByPk(history_id);
-
-    // Kiểm tra nếu không tìm thấy lịch sử làm bài
-    if (!history) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy lịch sử làm bài" });
-    }
-
-    // Lấy lịch sử lựa chọn đáp án của người dùng từ bảng UserAnswer
-    const userAnswers = await UserAnswer.findAll({
-      where: { history_id },
+    // Tìm lịch sử làm bài
+    const history = await TestHistory.findByPk(history_id, {
       include: [
         {
-          model: Question, 
-          attributes: ["id", "question_text"], 
-        },
-        {
-          model: Answer, 
-          attributes: ["id", "answer_text", "is_correct"],
+          model: Test,
+          attributes: ["id", "title", "description"],
         },
       ],
     });
 
-    if (userAnswers.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy câu trả lời cho bài thi này" });
-    }
+    // if (!history) {
+    //   return res
+    //     .status(404)
+    //     .json({ message: "Không tìm thấy lịch sử làm bài" });
+    // }
 
-    // Trả về danh sách câu hỏi và câu trả lời đã chọn
+    // Lấy danh sách đáp án người dùng đã chọn
+    const userAnswers = await UserAnswer.findAll({
+      where: { history_id },
+      include: [
+        {
+          model: Question,
+          attributes: ["id", "question_text"],
+        },
+        {
+          model: Answer,
+          attributes: ["id", "answer_text", "is_correct"],
+        },
+      ],
+    });
+    const user = await User.findByPk(req.user.id, {
+          attributes: ["id", "username", "email", "class", "description"],
+        });
+
+    // if (userAnswers.length === 0) {
+    //   return res
+    //     .status(404)
+    //     .json({ message: "Không tìm thấy câu trả lời cho bài thi này" });
+    // }
+
+    // Chuẩn hóa dữ liệu trả về
+    const formattedAnswers = userAnswers.map((ua) => ({
+      question: ua.Question,
+      selected_answer: ua.Answer,
+    }));
+
+    // Trả về dữ liệu đã tách rõ ràng
     res.status(200).json({
-      message: "Lịch sử lựa chọn đáp án thành công",
-      data: userAnswers,
+      message: `Lịch sử lựa chọn đáp án của ${req.user.username}`,
+      user,
+      historyTest: {
+        id: history.id,
+        score: history.score,
+        completed_at: history.completed_at,
+        test: history.Test,
+      },
+      data: formattedAnswers,
     });
   } catch (error) {
     console.error("Lỗi khi lấy lịch sử đáp án:", error);
