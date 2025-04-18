@@ -18,6 +18,7 @@ const Test = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: Admin, key: "id" },
+      onDelete: "CASCADE",
     },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },

@@ -73,6 +73,10 @@ CREATE TABLE user_answers (
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (answer_id) REFERENCES answers(id) ON DELETE CASCADE
 );
+ALTER TABLE users
+ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user';
+ALTER TABLE admins
+ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'admin';
 use quiz_app;
 INSERT INTO tests (title, description, created_by, author, quantity) VALUES
 ('Bài kiểm tra Toán', 'Bài kiểm tra kiến thức Toán cơ bản.', 1, 'B21DCCN721', 2),
