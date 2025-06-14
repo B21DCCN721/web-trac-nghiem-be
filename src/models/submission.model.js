@@ -1,15 +1,16 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../configs/connectDB');
 
-const Question = sequelize.define('Question', {
+const Submission = sequelize.define('Submission', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false },
   test_id: { type: DataTypes.INTEGER, allowNull: false },
-  question_text: { type: DataTypes.TEXT, allowNull: false }
+  score: { type: DataTypes.INTEGER }
 }, {
-  tableName: 'questions',
+  tableName: 'submissions',
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  createdAt: 'submitted_at',
+  updatedAt: false
 });
 
-module.exports = Question;
+module.exports = Submission;

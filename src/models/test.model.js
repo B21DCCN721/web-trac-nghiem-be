@@ -1,30 +1,24 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../configs/connectDB");
-const Admin = require("./admin.model");
 
 const Test = sequelize.define(
   "Test",
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-    title: { type: DataTypes.STRING(255), allowNull: false },
+    code: { type: DataTypes.STRING, allowNull: false, unique: true },
+    title: { type: DataTypes.STRING, allowNull: false },
     description: { type: DataTypes.TEXT },
-    author: { type: DataTypes.STRING(255), allowNull: false },
+    subject: { type: DataTypes.STRING, allowNull: false },
+    author: { type: DataTypes.STRING, allowNull: false },
     quantity: { type: DataTypes.INTEGER, allowNull: false },
-    attempts: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-    },
-    created_by: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: { model: Admin, key: "id" },
-      onDelete: "CASCADE",
-    },
-    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    attempts: { type: DataTypes.INTEGER, defaultValue: 0 },
+    created_by: { type: DataTypes.INTEGER, allowNull: false },
   },
   {
     tableName: "tests",
-    timestamps: false,
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
   }
 );
 

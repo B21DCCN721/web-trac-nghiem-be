@@ -1,26 +1,20 @@
 const express = require("express");
 const router = express.Router();
-const { authenticateToken } = require("../middlewares/authenticate.middleware");
-const { isAdmin } = require("../middlewares/isAdmin.middleware");
+const { authenticateToken, isAdmin } = require("../middlewares/authenticate.middleware");
 const {
-  getListTests,
-  getInfoTest,
-  getDetailTest,
+  getAllTests,
+  getInfoTestById,
+  getDetailTestById,
   submitTest,
-  getHistoryTest,
-  getUserAnswers,
-  createTest,
-  deleteTest,
+  getUserSubmissions,
+  getSubmissionAnswers
 } = require("../controllers/test.controller");
 
-router.delete("/delete/:id", authenticateToken, isAdmin, deleteTest);
-router.get("/detail/:id", authenticateToken, getDetailTest);
-router.get("/history/:history_id", authenticateToken, getUserAnswers);
-router.get("/info/:id", authenticateToken, getInfoTest);
-router.post("/submit", authenticateToken, submitTest);
-router.get("/history", authenticateToken, getHistoryTest);
-router.get("/", authenticateToken, getListTests);
-// chỉ admin được truy cập
-router.post("/create-test", authenticateToken, isAdmin, createTest);
+router.get("/get-info-test/:id", authenticateToken, getInfoTestById);
+router.get("/get-detail-test/:id", authenticateToken, getDetailTestById);
+router.get("/get-list-test", authenticateToken, getAllTests);
+router.post("/submit-test", authenticateToken, submitTest);
+router.get("/get-submissions", authenticateToken, getUserSubmissions);
+router.get("/get-submission-answers/:id", authenticateToken, getSubmissionAnswers);
 
 module.exports = router;

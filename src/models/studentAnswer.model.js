@@ -1,16 +1,16 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../configs/connectDB');
 
-const Answer = sequelize.define('Answer', {
+const StudentAnswer = sequelize.define('StudentAnswer', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  submission_id: { type: DataTypes.INTEGER, allowNull: false },
   question_id: { type: DataTypes.INTEGER, allowNull: false },
-  answer_text: { type: DataTypes.TEXT, allowNull: false },
-  is_correct: { type: DataTypes.BOOLEAN, defaultValue: false }
+  answer_id: { type: DataTypes.INTEGER, allowNull: false }
 }, {
-  tableName: 'answers',
+  tableName: 'student_answers',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: false
 });
 
-module.exports = Answer;
+module.exports = StudentAnswer;
