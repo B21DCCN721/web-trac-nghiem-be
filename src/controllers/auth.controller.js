@@ -7,7 +7,7 @@ const generateOTP = require("../helpers/generateOTP");
 const { sendOTPEmail } = require("../services/googleAuth.service");
 // Store OTP temporarily (in production, use Redis or similar)
 const otpStore = require("../helpers/otpStore");
-
+const getUserRanking = require("../helpers/getUserRanking");
 // Register controller for student
 const register = async (req, res) => {
   try {
@@ -196,7 +196,7 @@ const getProfile = async (req, res) => {
       ],
     //   attributes: ["id", "email", "name", "role", "avatar"],
     });
-
+    const rank = await getUserRanking(userId);
     if (!user) {
       return res
         .status(404)
@@ -215,6 +215,7 @@ const getProfile = async (req, res) => {
         ...(user.Student && {
           score: user.Student.score,
         }),
+        rank: rank
       },
     });
   } catch (error) {

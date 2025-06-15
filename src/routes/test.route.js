@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { authenticateToken, isAdmin } = require("../middlewares/authenticate.middleware");
+const { authenticateToken } = require("../middlewares/authenticate.middleware");
+const { exerciseFilterMiddleware } = require("../middlewares/search.middleware");
 const {
   getAllTests,
   getInfoTestById,
@@ -12,7 +13,7 @@ const {
 
 router.get("/get-info-test/:id", authenticateToken, getInfoTestById);
 router.get("/get-detail-test/:id", authenticateToken, getDetailTestById);
-router.get("/get-list-test", authenticateToken, getAllTests);
+router.get("/get-list-test", authenticateToken,exerciseFilterMiddleware, getAllTests);
 router.post("/submit-test", authenticateToken, submitTest);
 router.get("/get-submissions", authenticateToken, getUserSubmissions);
 router.get("/get-submission-answers/:id", authenticateToken, getSubmissionAnswers);

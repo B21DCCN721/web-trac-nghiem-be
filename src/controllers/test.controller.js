@@ -15,11 +15,11 @@ const getAllTests = async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
+    // Lấy điều kiện lọc từ middleware
+    const whereClause = req.filters?.where || {};
+
     const tests = await Test.findAndCountAll({
-      // include: [{
-      //     model: User,
-      //     attributes: ['id', 'name', 'email']
-      // }],
+      where: whereClause,
       attributes: [
         "id",
         "code",
@@ -28,6 +28,7 @@ const getAllTests = async (req, res) => {
         "author",
         "quantity",
         "attempts",
+        "created_at",
       ],
       limit: parseInt(limit),
       offset: parseInt(offset),
@@ -79,15 +80,6 @@ const getInfoTestById = async (req, res) => {
       return res.status(404).json({
         code: 0,
         message: "Không tìm thấy bài thi",
-      });
-    }
-
-    // Hide correct answers for students
-    if (req.user.role === "student") {
-      test.Questions.forEach((question) => {
-        question.Answers.forEach((answer) => {
-          delete answer.dataValues.is_correct;
-        });
       });
     }
 
@@ -247,17 +239,23 @@ const submitTest = async (req, res) => {
 
     await StudentAnswer.bulkCreate(answerData, { transaction: t });
 
-    submission.score = score;
+    submission.score = correctCount * 10;
     await submission.save({ transaction: t });
 
     // 6. Nếu là student → cộng điểm tổng
     if (student && score > 0) {
       await Student.increment("score", {
-        by: score,
+        by: score * 10,
         where: { user_id: userId },
         transaction: t,
       });
     }
+    // Cộng số lượt làm bài cho test
+    await Test.increment("attempts", {
+      by: 1,
+      where: { id: test_id },
+      transaction: t,
+    });
 
     await t.commit(); // Hoàn tất transaction nếu không lỗi
 
@@ -266,7 +264,7 @@ const submitTest = async (req, res) => {
       message: "Nộp bài thành công!",
       data: {
         submission_id: submission.id,
-        added_score: score,
+        added_score: score * 10,
         correct_count: correctCount,
       },
     });
@@ -283,26 +281,38 @@ const submitTest = async (req, res) => {
 const getUserSubmissions = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    const submissions = await Submission.findAll({
+    const submissions = await Submission.findAndCountAll({
       where: { user_id: userId },
       include: [
         {
           model: Test,
-          attributes: ["id", "title", "subject", "code"]
+          attributes: ["id", "title", "subject", "code"],
         },
-        {
-          model: User,
-          attributes: ["id", "name", "email"]
-        }
+        // {
+        //   model: User,
+        //   attributes: ["id", "name", "email"],
+        // },
       ],
-      order: [["submitted_at", "DESC"]]
+      limit: parseInt(limit),
+      offset: offset,
+      order: [["submitted_at", "DESC"]],
     });
 
     return res.status(200).json({
       code: 1,
       message: "Lấy lịch sử làm bài thành công",
-      data: submissions
+      data: {
+        submissions: submissions.rows,
+        pagination: {
+          total: submissions.count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(submissions.count / limit),
+        },
+      },
     });
   } catch (error) {
     console.error("Error fetching submissions:", error);
@@ -322,19 +332,38 @@ const getSubmissionAnswers = async (req, res) => {
       include: [
         {
           model: Question,
-          attributes: ["id", "question_text"]
+          attributes: ["id", "question_text"],
         },
         {
           model: Answer,
-          attributes: ["id", "answer_text", "is_correct"]
-        }
-      ]
+          attributes: ["id", "answer_text", "is_correct"],
+        },
+      ],
     });
-
+    const submission = await Submission.findByPk(id, {
+      include: [
+        {
+          model: Test,
+          attributes: ["id", "title", "subject", "code", "quantity"],
+          include: [
+            {
+              model: Question,
+              attributes: ["id", "question_text", "created_at"],
+              include: [
+                {
+                  model: Answer,
+                  attributes: ["id", "answer_text", "is_correct"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     return res.status(200).json({
       code: 1,
       message: "Lấy lịch sử lựa chọn đáp án thành công",
-      data: answers
+      data: { answers, submission },
     });
   } catch (error) {
     console.error("Error getting submission answers:", error);
@@ -345,7 +374,6 @@ const getSubmissionAnswers = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
   getAllTests,
