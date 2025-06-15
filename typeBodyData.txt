@@ -14,57 +14,42 @@
 }
 **create test**
 {
-  "title": "Bài thi Javascript",
-  "description": "Kiểm tra kiến thức cơ bản về JS",
-  "author": "Nguyễn Văn A",
+  "title": "Bài kiểm tra Lịch sử",
+  "description": "Kiểm tra kiến thức cơ bản",
+  "subject": "Lịch sử",
   "questions": [
     {
-      "question_text": "JavaScript là ngôn ngữ gì?",
-      "answers": [
-        { "answer_text": "Ngôn ngữ lập trình", "is_correct": true },
-        { "answer_text": "Trình duyệt", "is_correct": false },
-        { "answer_text": "Phần mềm", "is_correct": false },
-        { "answer_text": "Phần cứng", "is_correct": false }
-      ]
+      "question": "Việt Nam giành độc lập năm nào?",
+      "options": ["1945", "1954", "1975", "1990"],
+      "correctAnswer": 0
     },
     {
-      "question_text": "JavaScript chạy ở đâu?",
-      "answers": [
-        { "answer_text": "Trình duyệt", "is_correct": true },
-        { "answer_text": "Máy in", "is_correct": false },
-        { "answer_text": "Excel", "is_correct": false },
-        { "answer_text": "Word", "is_correct": false }
-      ]
+      "question": "Ai là Chủ tịch đầu tiên của Việt Nam?",
+      "options": ["Hồ Chí Minh", "Trần Hưng Đạo", "Ngô Quyền", "Phan Bội Châu"],
+      "correctAnswer": 0
     }
   ]
 }
+
 **update test**
 {
-  "title": "Bài kiểm tra logic",
-  "description": "Bài test cập nhật",
-  "author": "GV A",
+  "title": "Bài kiểm tra Lịch sử (Sửa)",
+  "description": "Đã cập nhật nội dung bài kiểm tra",
+  "subject": "Lịch sử",
   "questions": [
     {
-      "id": 1,
-      "question_text": "2 + 2 = ?",
-      "answers": [
-        { "id": 1, "answer_text": "3", "is_correct": false },
-        { "id": 2, "answer_text": "4", "is_correct": true },
-        { "id": 3, "answer_text": "5", "is_correct": false },
-        { "id": 4, "answer_text": "6", "is_correct": false }
-      ]
+      "question": "Việt Nam giành độc lập vào năm nào?",
+      "options": ["1945", "1954", "1975", "1990"],
+      "correctAnswer": 0
     },
     {
-      "question_text": "5 + 3 = ?",
-      "answers": [
-        { "answer_text": "6", "is_correct": false },
-        { "answer_text": "7", "is_correct": false },
-        { "answer_text": "8", "is_correct": true },
-        { "answer_text": "9", "is_correct": false }
-      ]
+      "question": "Người viết Tuyên ngôn Độc lập là ai?",
+      "options": ["Hồ Chí Minh", "Lê Duẩn", "Phạm Văn Đồng", "Trường Chinh"],
+      "correctAnswer": 0
     }
   ]
 }
+
 
 
 **register user**
