@@ -10,12 +10,13 @@ const {
   getUserSubmissions,
   getSubmissionAnswers
 } = require("../controllers/test.controller");
+router.use(authenticateToken);
 
-router.get("/get-info-test/:id", authenticateToken, getInfoTestById);
-router.get("/get-detail-test/:id", authenticateToken, getDetailTestById);
-router.get("/get-list-test", authenticateToken,exerciseFilterMiddleware, getAllTests);
-router.post("/submit-test", authenticateToken, submitTest);
-router.get("/get-submissions", authenticateToken, getUserSubmissions);
-router.get("/get-submission-answers/:id", authenticateToken, getSubmissionAnswers);
+router.get("/get-info-test/:id", getInfoTestById);
+router.get("/get-detail-test/:id", getDetailTestById);
+router.get("/get-list-test",exerciseFilterMiddleware, getAllTests);
+router.post("/submit-test", submitTest);
+router.get("/get-submissions", getUserSubmissions);
+router.get("/get-submission-answers/:id", getSubmissionAnswers);
 
 module.exports = router;

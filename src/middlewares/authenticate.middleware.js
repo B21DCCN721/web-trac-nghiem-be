@@ -12,7 +12,6 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(verified)
     req.user = verified; // Lưu thông tin user vào request
     next();
   } catch (error) {
@@ -29,7 +28,6 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-// Middleware to check if user is a student
 const isStudent = (req, res, next) => {
   if (req.user.role !== "student") {
     return res.status(403).json({

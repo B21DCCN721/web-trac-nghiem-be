@@ -115,7 +115,7 @@ const getDetailTestById = async (req, res) => {
           ],
         },
       ],
-      attributes: ["id", "title", "quantity"],
+      attributes: ["id", "title", "quantity", "subject", "description",],
     });
 
     if (!test) {

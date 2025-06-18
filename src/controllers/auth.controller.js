@@ -8,7 +8,7 @@ const { sendOTPEmail } = require("../services/googleAuth.service");
 // Store OTP temporarily (in production, use Redis or similar)
 const otpStore = require("../helpers/otpStore");
 const getUserRanking = require("../helpers/getUserRanking");
-// Register controller for student
+
 const register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -59,7 +59,6 @@ const register = async (req, res) => {
   }
 };
 
-// Login controller
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -70,7 +69,7 @@ const login = async (req, res) => {
       include: [
         {
           model: Student,
-          required: false, // Left join to get student info if exists
+          required: false,
         },
       ],
     });

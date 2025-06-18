@@ -57,10 +57,9 @@
     "username": "b21dccn721",
     "password": "123456",
     "email": "test@gmail.com",
-    "class_user": "D21CNPM01"
 }
 **login user**
 {
-    "username": "b21dccn721",
+    "email": "test@gmail.com",
     "password": "123456"
 }

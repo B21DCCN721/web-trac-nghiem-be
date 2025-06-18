@@ -1,15 +1,17 @@
 const { v4: uuidv4 } = require("uuid");
-const { Test, Question, Answer, User } = require("../models");
+const { Test, Question, Answer, User, Submission } = require("../models");
 const { sequelize } = require("../configs/connectDB");
+const { Op, fn, col, literal } = require("sequelize");
+const moment = require("moment"); // Dùng moment để xử lý thời gian
 
 const createTest = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
     const { title, description, subject, questions } = req.body;
-    const createdBy = req.user.id; // Từ authenticateToken
+    const createdBy = req.user.id;
     const user = await User.findByPk(createdBy);
-    const author = user.name; // Hoặc lấy từ token nếu có
+    const author = user.name;
 
     if (
       !title ||
@@ -49,7 +51,7 @@ const createTest = async (req, res) => {
       // Tạo câu hỏi
       const createdQuestion = await Question.create(
         {
-          test_id: test.id,
+          id: test.id,
           question_text: question,
         },
         { transaction: t }
@@ -87,7 +89,12 @@ const updateTest = async (req, res) => {
     const { title, description, subject, questions } = req.body;
 
     // Kiểm tra dữ liệu đầu vào
-    if (!title || !subject || !Array.isArray(questions) || questions.length === 0) {
+    if (
+      !title ||
+      !subject ||
+      !Array.isArray(questions) ||
+      questions.length === 0
+    ) {
       return res.status(400).json({ message: "Dữ liệu không hợp lệ." });
     }
 
@@ -112,7 +119,10 @@ const updateTest = async (req, res) => {
     const oldQuestions = await Question.findAll({ where: { test_id: testId } });
     const oldQuestionIds = oldQuestions.map((q) => q.id);
 
-    await Answer.destroy({ where: { question_id: oldQuestionIds }, transaction: t });
+    await Answer.destroy({
+      where: { question_id: oldQuestionIds },
+      transaction: t,
+    });
     await Question.destroy({ where: { test_id: testId }, transaction: t });
 
     // Tạo lại câu hỏi và đáp án
@@ -145,7 +155,9 @@ const updateTest = async (req, res) => {
     }
 
     await t.commit();
-    return res.status(200).json({ code: 1, message: "Cập nhật bài thi thành công." });
+    return res
+      .status(200)
+      .json({ code: 1, message: "Cập nhật bài thi thành công." });
   } catch (error) {
     await t.rollback();
     console.error("Lỗi khi cập nhật bài thi:", error);
@@ -167,19 +179,223 @@ const deleteTest = async (req, res) => {
     const questions = await Question.findAll({ where: { test_id: testId } });
     const questionIds = questions.map((q) => q.id);
 
-    await Answer.destroy({ where: { question_id: questionIds }, transaction: t });
+    await Answer.destroy({
+      where: { question_id: questionIds },
+      transaction: t,
+    });
     await Question.destroy({ where: { test_id: testId }, transaction: t });
 
     // Xóa bài thi
     await test.destroy({ transaction: t });
 
     await t.commit();
-    return res.status(200).json({ code: 1, message: "Xóa bài thi thành công." });
+    return res
+      .status(200)
+      .json({ code: 1, message: "Xóa bài thi thành công." });
   } catch (error) {
     await t.rollback();
     console.error("Lỗi khi xóa bài thi:", error);
     return res.status(500).json({ code: 0, message: "Lỗi server." });
   }
-}
+};
+const getAverageScoreTest = async (req, res) => {
+  const { id } = req.params;
 
-module.exports = { createTest, updateTest, deleteTest };
+  try {
+    const result = await Submission.findAll({
+      where: { test_id: id },
+      include: [
+        {
+          model: User,
+          attributes: [],
+          where: { role: "student" },
+        },
+      ],
+      attributes: [
+        [
+          Submission.sequelize.fn("AVG", Submission.sequelize.col("score")),
+          "average_score",
+        ],
+      ],
+      raw: true,
+    });
+
+    const avgScore = result[0].average_score;
+
+    res.status(200).json({
+      code: 1,
+      data: {
+        test_id: id,
+        average_score: avgScore ? parseFloat(avgScore).toFixed(2) : null,
+      },
+    });
+  } catch (error) {
+    console.error("Error calculating average score:", error);
+    res.status(500).json({ code: 0, message: "Lỗi server" });
+  }
+};
+const getStudentSubmission = async (req, res) => {
+  const { id } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
+  try {
+    const submissions = await Submission.findAndCountAll({
+      where: { test_id: id },
+      include: [
+        {
+          model: User,
+          where: { role: "student" },
+          attributes: ["id", "name", "email"],
+        },
+      ],
+      order: [["submitted_at", "DESC"]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.status(200).json({
+      code: 1,
+      data: {
+        submissions: submissions.rows,
+        pagination: {
+          total: submissions.count,
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          totalPages: Math.ceil(submissions.count / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching student submissions:", error);
+    res.status(500).json({ code: 0, message: "Lỗi server" });
+  }
+};
+const getAdminTestStats = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    // 1. Tổng số bài thi được admin tạo
+    const totalTests = await Test.count({
+      where: { created_by: adminId },
+    });
+
+    // 2. Tìm các bài test ID được admin tạo
+    const testIds = await Test.findAll({
+      where: { created_by: adminId },
+      attributes: ['id'],
+      raw: true,
+    });
+    const testIdList = testIds.map(t => t.id);
+
+    if (testIdList.length === 0) {
+      return res.status(200).json({
+        code: 1,
+        message: "Thống kê bài thi của admin thành công.",
+        data: {
+          totalTests: 0,
+          averageScore: 0,
+          studentCount: 0,
+        },
+      });
+    }
+
+    // 3. Điểm trung bình tất cả submissions của các bài test này
+    const submissionStats = await Submission.findAll({
+      where: {
+        test_id: { [Op.in]: testIdList },
+      },
+      attributes: [
+        [fn("AVG", col("score")), "averageScore"],
+      ],
+      raw: true,
+    });
+
+    const averageScore = parseFloat(submissionStats[0].averageScore || 0);
+
+    // 4. Đếm số lượng user duy nhất (students) đã nộp bài
+    const students = await Submission.findAll({
+      where: {
+        test_id: { [Op.in]: testIdList },
+      },
+      attributes: [[fn("DISTINCT", col("user_id")), "user_id"]],
+      raw: true,
+    });
+
+    const studentCount = students.length;
+
+    return res.status(200).json({
+      code: 1,
+      message: "Thống kê bài thi của admin thành công.",
+      data: {
+        totalTests,
+        averageScore: +averageScore.toFixed(2),
+        studentCount,
+      },
+    });
+
+  } catch (error) {
+    console.error("Error getting admin stats:", error);
+    return res.status(500).json({
+      code: 0,
+      message: "Lỗi khi lấy thống kê.",
+    });
+  }
+};
+const getTestStatsLast10Days = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    // Tính ngày hôm nay và ngày 10 ngày trước
+    const today = moment().endOf("day").toDate();
+    const tenDaysAgo = moment().subtract(9, "days").startOf("day").toDate();
+
+    const stats = await Test.findAll({
+      where: {
+        created_by: adminId,
+        created_at: {
+          [Op.between]: [tenDaysAgo, today],
+        },
+      },
+      attributes: [
+        [fn("DATE", col("created_at")), "date"],
+        [fn("COUNT", col("id")), "test_count"],
+      ],
+      group: [fn("DATE", col("created_at"))],
+      order: [[literal("date"), "ASC"]],
+      raw: true,
+    });
+
+    // Đảm bảo trả về đủ 10 ngày, cả ngày không có bài thi
+    const result = [];
+    for (let i = 9; i >= 0; i--) {
+      const day = moment().subtract(i, "days").format("YYYY-MM-DD");
+      const found = stats.find((s) => moment(s.date).format("YYYY-MM-DD") === day);
+      result.push({
+        date: day,
+        test_count: found ? parseInt(found.test_count) : 0,
+      });
+    }
+
+    return res.status(200).json({
+      code: 1,
+      message: "Lấy thống kê bài thi trong 10 ngày thành công.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error getting test stats:", error);
+    return res.status(500).json({
+      code: 0,
+      message: "Lỗi khi lấy thống kê bài thi.",
+    });
+  }
+};
+
+module.exports = {
+  createTest,
+  updateTest,
+  deleteTest,
+  getAverageScoreTest,
+  getStudentSubmission,
+  getAdminTestStats,
+  getTestStatsLast10Days
+};
