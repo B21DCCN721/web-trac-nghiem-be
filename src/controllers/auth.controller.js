@@ -58,12 +58,77 @@ const register = async (req, res) => {
     });
   }
 };
+// login dùng breaker header
+// const login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
 
+//     // Check if user exists
+//     const user = await User.findOne({
+//       where: { email },
+//       include: [
+//         {
+//           model: Student,
+//           required: false,
+//         },
+//       ],
+//     });
+
+//     if (!user) {
+//       return res.status(400).json({
+//         code: 0,
+//         message: "Email không đúng",
+//       });
+//     }
+
+//     // Compare password
+//     const isValidPassword = await bcrypt.compare(password, user.password_hash);
+//     if (!isValidPassword) {
+//       return res.status(400).json({
+//         code: 0,
+//         message: "Mật khẩu không đúng",
+//       });
+//     }
+
+//     // Create JWT token
+//     const token = jwt.sign(
+//       {
+//         id: user.id,
+//         email: user.email,
+//         role: user.role,
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: process.env.JWT_EXPIRES_IN }
+//     );
+
+//     res.json({
+//       code: 1,
+//       message: "Đăng nhập thành công",
+//       user: {
+//         id: user.id,
+//         email: user.email,
+//         name: user.name,
+//         role: user.role,
+//         avatar: user.avatar,
+//         ...(user.Student && {
+//           score: user.Student.score,
+//         }),
+//       },
+//       token,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       code: 0,
+//       message: "Lỗi server",
+//       error: error.message,
+//     });
+//   }
+// };
+// login dùng cookie
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
-    // Check if user exists
     const user = await User.findOne({
       where: { email },
       include: [
@@ -75,31 +140,41 @@ const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({
-        code: 0,
-        message: "Email không đúng",
-      });
+      return res.status(400).json({ code: 0, message: "Email không đúng" });
     }
 
-    // Compare password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      return res.status(400).json({
-        code: 0,
-        message: "Mật khẩu không đúng",
-      });
+      return res.status(400).json({ code: 0, message: "Mật khẩu không đúng" });
     }
 
-    // Create JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+    // Tạo access token (15 phút) và refresh token (30 ngày)
+    const accessToken = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN }
     );
+
+    const refreshToken = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
+    );
+
+    // Lưu refreshToken vào cookie HTTP-only
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : null, // 30 ngày hoặc session
+    });
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000, // 15 phút
+    });
 
     res.json({
       code: 1,
@@ -110,19 +185,42 @@ const login = async (req, res) => {
         name: user.name,
         role: user.role,
         avatar: user.avatar,
-        ...(user.Student && {
-          score: user.Student.score,
-        }),
+        ...(user.Student && { score: user.Student.score }),
       },
-      token,
     });
   } catch (error) {
-    res.status(500).json({
-      code: 0,
-      message: "Lỗi server",
-      error: error.message,
-    });
+    res.status(500).json({ code: 0, message: "Lỗi server", error: error.message });
   }
+};
+const refreshToken = (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) return res.sendStatus(401);
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    
+    const newAccessToken = jwt.sign(
+      { id: decoded.id, role: decoded.role },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN }
+    );
+
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000, // 15 phút
+    });
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    return res.sendStatus(403);
+  }
+};
+const logout = (req, res) => {
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  res.json({ message: "Đăng xuất thành công" });
 };
 
 const changePassword = async (req, res) => {
@@ -437,6 +535,8 @@ const registerAdmin = async (req, res) => {
 module.exports = {
   register,
   login,
+  refreshToken,
+  logout,
   changePassword,
   updateProfile,
   getProfile,
